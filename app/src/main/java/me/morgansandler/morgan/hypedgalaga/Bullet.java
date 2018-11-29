@@ -53,6 +53,14 @@ public class Bullet {
         return false;
     }
 
+    public void powerupSpeed(){
+        speed = 1300;
+    }
+
+    public void resetSpeed(){
+        speed = 350;
+    }
+
     public RectF getRect(){
         return rect;
     }

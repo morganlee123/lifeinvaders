@@ -17,6 +17,9 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import java.io.IOException;
+import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class HypedGalagaView extends SurfaceView implements Runnable {
 
@@ -49,7 +52,7 @@ public class HypedGalagaView extends SurfaceView implements Runnable {
     private Brick[] bricks = new Brick[400];
     private int numBricks;
 
-    //private Powerup powerup;
+    private Powerup powerup;
 
     private SoundPool soundPool;
     private int playerExplodeID = -1;
@@ -66,6 +69,8 @@ public class HypedGalagaView extends SurfaceView implements Runnable {
     private long menaceInterval = 1000;
     private boolean uhOrOh;
     private long lastMenaceTime = System.currentTimeMillis();
+
+    private boolean projectileSpeed = false, burst = false, extraLife = false, replenishBricks = false;
 
     public HypedGalagaView(Context context, int x, int y){
         super(context);
@@ -133,7 +138,7 @@ public class HypedGalagaView extends SurfaceView implements Runnable {
             }
         }
 
-        //powerup = new Powerup(context, 300, screenY - screenY, screenX, screenY);
+        powerup = new Powerup(context, screenX, screenY);
     }
 
     @Override
@@ -176,6 +181,8 @@ public class HypedGalagaView extends SurfaceView implements Runnable {
 
 
     }
+
+    int clicksleft = 0;
 
     private void update(){
         boolean bumped = false;
@@ -260,6 +267,7 @@ public class HypedGalagaView extends SurfaceView implements Runnable {
                             score = 0;
                             lives = 3;
                             prepareLevel();
+                            // win
                         }
                     }
                 }
@@ -316,29 +324,68 @@ public class HypedGalagaView extends SurfaceView implements Runnable {
             }
         }
 
-        /*
+        if(!powerup.isActive() && !projectileSpeed && !extraLife && !replenishBricks){
+            powerup.resetY();
+            powerup.setActive();
+        }
+
+        if(clicksleft == 0){
+            bullet.resetSpeed();
+        }else if(clicksleft == 1){
+            projectileSpeed = false;
+        }
+
+        powerup.update(fps);
         // check for powerup hit
-        if(powerup.exists()) {
-            powerup.update(fps);
-            if (RectF.intersects(bullet.getRect(), powerup.getRect())) {
-                switch(powerup.getType()){
+        if(powerup.isActive()) {
+            if ((RectF.intersects(bullet.getRect(), powerup.getRect())) || (RectF.intersects(powerup.getRect(), playerShip.getRect()))) {
+                bullet.setInactive();
+                powerup.setInactive();
+                switch(powerup.getType()) {
                     case 0:
                         // proj speed
+                        clicksleft = 5;
+                        bullet.powerupSpeed();
+                        projectileSpeed = true;
                         break;
                     case 1:
-                        // burst
+                        // extra lives
+                        extraLife = true;
+                        lives++;
+
+                        new Timer().schedule(new TimerTask() {
+                            @Override
+                            public void run() {
+                                extraLife = false;
+                            }
+                        }, 2000);
                         break;
                     case 2:
-                        // extra lives
-                        break;
-                    case 3:
                         // replenish bricks
+                        replenishBricks = true;
+                        numBricks = 0;
+                        for(int shelterNumber = 0; shelterNumber < 4; shelterNumber++){
+                            for(int column = 0; column < 10; column ++ ) {
+                                for (int row = 0; row < 5; row++) {
+                                    bricks[numBricks] = new Brick(row, column, shelterNumber, screenX, screenY);
+                                    numBricks++;
+                                }
+                            }
+                        }
+
+                        new Timer().schedule(new TimerTask() {
+                            @Override
+                            public void run() {
+                                replenishBricks = false;
+                            }
+                        }, 2000);
+
                         break;
 
                 }
             }
         }
-        */
+
         // end update
     }
 
@@ -384,16 +431,34 @@ public class HypedGalagaView extends SurfaceView implements Runnable {
                 }
             }
 
-            /*
+
             // draw powerup
-            if(powerup.exists()){
+            if(powerup.isActive()){
                 canvas.drawBitmap(powerup.getBitmap(), powerup.getX(), powerup.getY(), paint);
-            }*/
+            }
 
             // draw score and remaining lives
             paint.setColor(Color.argb(255, 249, 129, 0));
             paint.setTextSize(80);
             canvas.drawText("Score: " + score + "   Lives: " + lives, 50, 80, paint);
+
+            if(projectileSpeed) {
+                paint.setColor(Color.argb(255, 255, 255, 255));
+                paint.setTextSize(80);
+                canvas.drawText("POWER UP! +4 FASTER PROJECTILE SHOTS", screenX / 2 - 450 , screenY - screenY / 3, paint);
+            }
+
+            if(replenishBricks) {
+                paint.setColor(Color.argb(255, 255, 255, 255));
+                paint.setTextSize(80);
+                canvas.drawText("POWER UP! BRICKS REPLENISHED", screenX / 2 - 450 , screenY - screenY / 3, paint);
+            }
+
+            if(extraLife) {
+                paint.setColor(Color.argb(255, 255, 255, 255));
+                paint.setTextSize(80);
+                canvas.drawText("POWER UP! +1 LIFE", screenX / 2 - 450 , screenY - screenY / 3, paint);
+            }
 
             holder.unlockCanvasAndPost(canvas);
         }
@@ -421,16 +486,18 @@ public class HypedGalagaView extends SurfaceView implements Runnable {
 
                 paused = false;
 
-                if(motionEvent.getY() > screenY - screenY / 8){
+                if(motionEvent.getY() > screenY - screenY / 6){
                     if(motionEvent.getX() > screenX / 2){
                         playerShip.setMovementState(playerShip.RIGHT);
                     }else{
                         playerShip.setMovementState(playerShip.LEFT);
                     }
                 }
-                if(motionEvent.getY() < screenY - screenY / 8 ){
+                if(motionEvent.getY() < screenY - screenY / 6 ){
                     // shoot
                     if(bullet.shoot(playerShip.getX()+playerShip.getLength()/2, screenY, bullet.UP)){
+                        if(clicksleft > 0)
+                            clicksleft--;
                         soundPool.play(shootID, 1, 1, 0,0, 1);
                     }
                 }

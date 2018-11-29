@@ -31,14 +31,23 @@ public class Powerup {
 
     private int fallSpeed = 350;
 
-    public Powerup(Context context, int x, int y, int screenX, int screenY){
-        randomNumber = new Random();
+    private boolean isActive;
 
-        this.x = x;
-        this.y = y;
+    private int screenX, screenY;
+
+    public Powerup(Context context, int screenX, int screenY){
+        randomNumber = new Random();
+        this.screenX = screenX;
+        this.screenY = screenY;
 
         length = screenX / 20;
         height = screenY / 20;
+
+        isActive = true;
+        rect = new RectF();
+
+        y = screenY - screenY;
+        x = randomNumber.nextInt(screenX);
 
         type = randomNumber.nextInt(3);
 
@@ -49,17 +58,32 @@ public class Powerup {
     public void update(long fps){
         y = y + fallSpeed / fps;
 
+        if(y > screenY){
+            y = screenY-screenY;
+            x = randomNumber.nextInt(screenX);
+        }
+
+        type = randomNumber.nextInt(3);
+
         rect.top = y;
         rect.bottom = y + height;
         rect.left = x;
         rect.right = x + length;
     }
 
-    public boolean exists(){
-        if(randomNumber.nextInt(1000) == 0){
-            return true;
-        }
-        return false;
+    public void resetY(){
+        y = screenY-screenY;
+    }
+
+    public boolean isActive() {
+        return isActive;
+    }
+
+    public void setActive(){
+        isActive = true;
+    }
+    public void setInactive(){
+        isActive = false;
     }
 
     public Bitmap getBitmap(){
